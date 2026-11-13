@@ -2,10 +2,6 @@
 
 from dataclasses import dataclass
 
-from drafter import (Button, Div, Header, Label, Page, Paragraph, ProgressBar, SelectBox,
-    TextBox, route, set_site_information, set_website_title, start_server,)
-
-
 MUSCLE_GROUPS = ("Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Other")
 
 
@@ -48,7 +44,10 @@ def total_volume(entries: list[WorkoutEntry]) -> float:
 
 def metric(label: str, value: str) -> Div:
     '''Show a label and total.'''
-    return Div([Paragraph(label),Paragraph(value),])
+    return Div([
+        Paragraph(label),
+        Paragraph(value),
+    ])
 
 
 def goal_card(state: State) -> Div:
@@ -63,7 +62,8 @@ def goal_card(state: State) -> Div:
         Paragraph("YOUR TOTAL-SET GOAL"),
         Header(str(completed) + " / " + str(state.set_goal) + " sets", level=2),
         ProgressBar(min(completed, state.set_goal), state.set_goal),
-        Paragraph(message),])
+        Paragraph(message),
+    ])
 
  
 def site_page(state: State, content: list) -> Page:
@@ -76,7 +76,8 @@ def site_page(state: State, content: list) -> Page:
         Button("Statistics", statistics),
         Button("Settings", settings),
         Div(content),
-        Paragraph("This visit only: refreshing or closing the page starts a new log."),])
+        Paragraph("This visit only: refreshing or closing the page starts a new log."),
+    ])
 
 
 @route
@@ -88,8 +89,10 @@ def index(state: State) -> Page:
         Paragraph("Small steps. Stronger habits. Keep a record of the work you put in."),
         Div([
             Button("+ Log Exercise", log_exercise),
-            Button("View History", history),]),
-        Div([metric("Exercises logged", str(len(state.entries))),
+            Button("View History", history),
+        ]),
+        Div([
+            metric("Exercises logged", str(len(state.entries))),
             metric("Sets completed", str(total_sets(state.entries))),
             metric("Lifting volume", f"{total_volume(state.entries):,.1f} lb"),
         ]),
@@ -176,7 +179,6 @@ def save_exercise(state: State, exercise_name: str, muscle_group: str,
             error = "Weight must be a number from 0 to 10,000 pounds."
 
     if error:
-        # The fallback keeps SelectBox's default inside its permitted options.
         if muscle_group not in MUSCLE_GROUPS:
             muscle_group = "Chest"
         return exercise_form(state, error, exercise_name, muscle_group,
