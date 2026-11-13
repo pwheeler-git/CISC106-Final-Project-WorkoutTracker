@@ -1,7 +1,9 @@
-'''LiftLog: beginner friendly workout tracker built using drafter'''
+'''Track exercises with Drafter.'''
 
 from dataclasses import dataclass
-from drafter import *
+
+from drafter import (Button, Div, Header, Label, Page, Paragraph, ProgressBar, SelectBox,
+    TextBox, route, set_site_information, set_website_title, start_server,)
 
 
 MUSCLE_GROUPS = ("Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Other")
@@ -9,7 +11,7 @@ MUSCLE_GROUPS = ("Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Other")
 
 @dataclass
 class WorkoutEntry:
-    '''One exercise entry, with weight measured in pounds.'''
+    '''Store one exercise entry.'''
 
     exercise_name: str
     muscle_group: str
@@ -20,7 +22,7 @@ class WorkoutEntry:
 
 @dataclass
 class State:
-    '''The four pieces of information that change through user actions.'''
+    '''Store the workout log and settings.'''
 
     entries: list[WorkoutEntry]
     name: str
@@ -29,7 +31,7 @@ class State:
 
 
 def total_sets(entries: list[WorkoutEntry]) -> int:
-    '''Add the sets from every exercise entry.'''
+    '''Add up all sets.'''
     result = 0
     for entry in entries:
         result += entry.sets
@@ -37,7 +39,7 @@ def total_sets(entries: list[WorkoutEntry]) -> int:
 
 
 def total_volume(entries: list[WorkoutEntry]) -> float:
-    '''Calculate lifting volume as sets times reps times pounds.'''
+    '''Add up sets times reps times weight.'''
     result = 0.0
     for entry in entries:
         result += entry.sets * entry.reps * entry.weight
@@ -45,14 +47,12 @@ def total_volume(entries: list[WorkoutEntry]) -> float:
 
 
 def metric(label: str, value: str) -> Div:
-    '''Display a label and a total.'''
-    return Div([
-        Paragraph(label),
-        Paragraph(value),])
+    '''Show a label and total.'''
+    return Div([Paragraph(label),Paragraph(value),])
 
 
 def goal_card(state: State) -> Div:
-    '''Show progress toward a goal across all entries, including hidden ones.'''
+    '''Show progress toward the set goal.'''
     completed = total_sets(state.entries)
     remaining = state.set_goal - completed
     if remaining <= 0:
@@ -65,8 +65,9 @@ def goal_card(state: State) -> Div:
         ProgressBar(min(completed, state.set_goal), state.set_goal),
         Paragraph(message),])
 
+ 
 def site_page(state: State, content: list) -> Page:
-    '''Add simple navigation buttons to each page.'''
+    '''Add navigation buttons to a page.'''
     return Page(state, [
         Header("LiftLog"),
         Button("Home", index),
@@ -80,7 +81,7 @@ def site_page(state: State, content: list) -> Page:
 
 @route
 def index(state: State) -> Page:
-    '''Display the welcome message, overall totals, and goal progress.'''
+    '''Show the home page.'''
     content = [
         Paragraph("YOUR TRAINING JOURNAL"),
         Header("Welcome, " + state.name + "!"),
@@ -90,22 +91,27 @@ def index(state: State) -> Page:
             Button("View History", history),]),
         Div([metric("Exercises logged", str(len(state.entries))),
             metric("Sets completed", str(total_sets(state.entries))),
-            metric("Lifting volume", f"{total_volume(state.entries):,.1f} lb"),]),goal_card(state),]
+            metric("Lifting volume", f"{total_volume(state.entries):,.1f} lb"),
+        ]),
+        goal_card(state),
+    ]
     if not state.entries:
         content.append(Div([
             Header("Your next chapter starts with one set.", level=2),
-            Paragraph("Log an exercise to start your history and see your totals grow."),]))
+            Paragraph("Log an exercise to start your history and see your totals grow."),
+        ]))
     else:
         latest = state.entries[-1]
         content.append(Div([
             Paragraph("LAST EXERCISE LOGGED"),
             Header(latest.exercise_name, level=2),
-            Paragraph(entry_summary(latest)),]))
+            Paragraph(entry_summary(latest)),
+        ]))
     return site_page(state, content)
 
 
 def entry_summary(entry: WorkoutEntry) -> str:
-    '''Describe an entry using its group, sets, reps, and weight.'''
+    '''Return the exercise details as text.'''
     return (entry.muscle_group + " · " + str(entry.sets) + " sets × "
             + str(entry.reps) + " reps × " + f"{entry.weight:g} lb")
 
@@ -113,11 +119,12 @@ def entry_summary(entry: WorkoutEntry) -> str:
 def exercise_form(state: State, error: str = "", exercise_name: str = "",
                   muscle_group: str = "Chest", sets: str = "3",
                   reps: str = "10", weight: str = "0") -> Page:
-    '''Build the exercise form, preserving inputs if validation fails.'''
+    '''Show exercise inputs and any error.'''
     content = [
         Paragraph("PUT IN THE WORK"),
         Header("Log an exercise"),
-        Paragraph("Record sets performed with the same reps and weight."),]
+        Paragraph("Record sets performed with the same reps and weight."),
+    ]
     if error:
         content.append(Paragraph(error, role="alert"))
     content.append(Div([
@@ -129,28 +136,25 @@ def exercise_form(state: State, error: str = "", exercise_name: str = "",
         Div([
             Div([Label("Sets", "sets"), TextBox("sets", sets)]),
             Div([Label("Reps per set", "reps"), TextBox("reps", reps)]),
-            Div([Label("Weight (lb)", "weight"), TextBox("weight", weight)]),]),
+            Div([Label("Weight (lb)", "weight"), TextBox("weight", weight)]),
+        ]),
         Paragraph("Use whole numbers for sets and reps. Enter 0 lb for unweighted exercises."),
         Div([Button("Save Exercise", save_exercise),
-             Button("Home", index)])]))
+             Button("Home", index)]),
+    ]))
     return site_page(state, content)
 
 
 @route
 def log_exercise(state: State) -> Page:
-    '''Display a blank form for logging an exercise.'''
+    '''Show a blank exercise form.'''
     return exercise_form(state)
 
 
 @route
 def save_exercise(state: State, exercise_name: str, muscle_group: str,
                   sets: str, reps: str, weight: str) -> Page:
-    '''Validate form text, then add an entry and show the complete history.
-
-    Numeric inputs intentionally arrive as strings so the page can show a
-    friendly error instead of Drafter failing to convert invalid text.
-    try/except catches conversion errors; isfinite rejects NaN and infinity.
-    '''
+    '''Check and save an exercise. Use try/except to handle invalid number text.'''
     error = ""
     if not exercise_name.strip():
         error = "Enter an exercise name."
@@ -168,10 +172,11 @@ def save_exercise(state: State, exercise_name: str, muscle_group: str,
     else:
         if not 1 <= set_count <= 1000 or not 1 <= rep_count <= 1000:
             error = "Sets and reps must each be whole numbers from 1 to 1,000."
-        elif not isfinite(pounds) or not 0 <= pounds <= 10000:
+        elif not 0 <= pounds <= 10000:
             error = "Weight must be a number from 0 to 10,000 pounds."
 
     if error:
+        # The fallback keeps SelectBox's default inside its permitted options.
         if muscle_group not in MUSCLE_GROUPS:
             muscle_group = "Chest"
         return exercise_form(state, error, exercise_name, muscle_group,
@@ -185,7 +190,7 @@ def save_exercise(state: State, exercise_name: str, muscle_group: str,
 
 @route
 def history(state: State) -> Page:
-    '''Show matching entries and preserve original indexes for deletion.'''
+    '''Show saved exercises and delete buttons.'''
     content = [
         Paragraph("THE WORK YOU'VE PUT IN"),
         Header("Exercise history"),
@@ -194,7 +199,9 @@ def history(state: State) -> Page:
             Label("Muscle group", "muscle_group"),
             SelectBox("muscle_group", ["All"] + list(MUSCLE_GROUPS),
                       state.selected_muscle_group),
-            Button("Apply Filter", filter_history),]),]
+            Button("Apply Filter", filter_history),
+        ]),
+    ]
     matching_count = 0
     for entry_index in range(len(state.entries)):
         entry = state.entries[entry_index]
@@ -204,7 +211,8 @@ def history(state: State) -> Page:
             content.append(Div([
                 Div([Header(entry.exercise_name, level=2),
                      Paragraph(entry_summary(entry))]),
-                Button("Delete", delete_entry, {"entry_index": entry_index}),]))
+                Button("Delete", delete_entry, {"entry_index": entry_index}),
+            ]))
     if not state.entries:
         content.append(Paragraph("No exercises logged yet. Add your first exercise."))
     elif matching_count == 0:
@@ -218,7 +226,7 @@ def history(state: State) -> Page:
 
 @route
 def filter_history(state: State, muscle_group: str) -> Page:
-    '''Update the selected muscle group and display matching entries.'''
+    '''Filter exercises by muscle group.'''
     if muscle_group == "All" or muscle_group in MUSCLE_GROUPS:
         state.selected_muscle_group = muscle_group
     return history(state)
@@ -226,7 +234,7 @@ def filter_history(state: State, muscle_group: str) -> Page:
 
 @route
 def delete_entry(state: State, entry_index: int) -> Page:
-    '''Remove the selected entry using its index in the complete list.'''
+    '''Delete the selected exercise.'''
     if 0 <= entry_index < len(state.entries):
         state.entries.pop(entry_index)
     return history(state)
@@ -234,7 +242,7 @@ def delete_entry(state: State, entry_index: int) -> Page:
 
 @route
 def statistics(state: State) -> Page:
-    '''Show totals across all logged entries and progress toward the goal.'''
+    '''Show workout totals and goal progress.'''
     return site_page(state, [
         Paragraph("SEE YOUR EFFORT ADD UP"),
         Header("Your statistics"),
@@ -242,26 +250,30 @@ def statistics(state: State) -> Page:
         Div([
             metric("Exercises logged", str(len(state.entries))),
             metric("Total sets", str(total_sets(state.entries))),
-            metric("Total lifting volume", f"{total_volume(state.entries):,.1f} lb"),]),
+            metric("Total lifting volume", f"{total_volume(state.entries):,.1f} lb"),
+        ]),
         goal_card(state),
         Div([
             Header("What is lifting volume?", level=2),
             Paragraph("For each entry: sets × reps per set × weight in pounds."),
             Paragraph("For example, 3 sets × 10 reps × 95 lb = 2,850 lb of volume."),
-            Paragraph("Unweighted entries count toward your set goal and add 0 lb of volume."),]),
-        Button("Home", index),])
+            Paragraph("Unweighted entries count toward your set goal and add 0 lb of volume."),
+        ]),
+        Button("Home", index),
+    ])
 
 
 def settings_form(state: State, error: str = "", name: str = "",
                   set_goal: str = "") -> Page:
-    '''Build the settings form, optionally preserving rejected values.'''
+    '''Show settings inputs and any error.'''
     if not error:
         name = state.name
         set_goal = str(state.set_goal)
     content = [
         Paragraph("MAKE IT YOURS"),
         Header("Your settings"),
-        Paragraph("Choose a name and a total-set goal for this log."),]
+        Paragraph("Choose a name and a total-set goal for this log."),
+    ]
     if error:
         content.append(Paragraph(error, role="alert"))
     content.append(Div([
@@ -269,19 +281,20 @@ def settings_form(state: State, error: str = "", name: str = "",
         Div([Label("Total-set goal", "set_goal"), TextBox("set_goal", set_goal)]),
         Paragraph("Your goal counts sets across all entries in this log."),
         Div([Button("Save Settings", save_settings),
-             Button("Home", index)]),]))
+             Button("Home", index)]),
+    ]))
     return site_page(state, content)
 
 
 @route
 def settings(state: State) -> Page:
-    '''Display the current name and total-set goal.'''
+    '''Show the settings page.'''
     return settings_form(state)
 
 
 @route
 def save_settings(state: State, name: str, set_goal: str) -> Page:
-    '''Validate settings before changing both fields and returning home.'''
+    '''Check and save the name and set goal.'''
     if not name.strip() or len(name.strip()) > 40:
         return settings_form(state, "Enter a name from 1 to 40 characters.", name, set_goal)
     try:
@@ -295,15 +308,4 @@ def save_settings(state: State, name: str, set_goal: str) -> Page:
     return index(state)
 
 
-set_website_title("LiftLog | Workout Tracker")
-set_site_information(
-    author="Peter Wheeler",
-    description="Log exercises, filter history, and track lifting volume and a total-set goal.",
-    sources=["https://drafter-edu.github.io/drafter/", "AI assistance: OpenAI Codex"],
-    planning="Based on the LiftLog brainstorming and five-page design worksheets.",
-    links=[],)
-
-
 start_server(State([], "Peter", 50, "All"))
-
-
