@@ -1,6 +1,7 @@
 '''Track exercises with Drafter.'''
 
 from dataclasses import dataclass
+from drafter import *
 
 MUSCLE_GROUPS = ("Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Other")
 
